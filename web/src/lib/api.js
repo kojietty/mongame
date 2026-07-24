@@ -29,6 +29,7 @@ export const api = {
   train: (id, menuId) => jf(`/monsters/${id}/train`, { method: "POST", body: JSON.stringify({ menuId }) }),
   favorite: (id, favorite) => jf(`/monsters/${id}/favorite`, { method: "POST", body: JSON.stringify({ favorite }) }),
   rename: (id, name) => jf(`/monsters/${id}/rename`, { method: "POST", body: JSON.stringify({ name }) }),
+  sell: (ids) => jf("/monsters/sell", { method: "POST", body: JSON.stringify({ ids }) }),
   queue: (monsterId) => jf("/battle/queue", { method: "POST", body: JSON.stringify({ monsterId }) }),
   pollMatch: () => jf("/battle/poll", { method: "POST" }),
   cancelMatch: () => jf("/battle/cancel", { method: "POST" }),

@@ -99,6 +99,32 @@ export default {
         return cors(json({ monsters: rows.map(shapeMonster) }), env);
       }
 
+      // 売却: 10匹単位で育成チケットに変換(10匹=1枚)。お気に入りは対象外。
+      if (p === "/monsters/sell" && request.method === "POST") {
+        const body = await request.json().catch(() => ({}));
+        const ids = Array.isArray(body.ids) ? [...new Set(body.ids.map(Number).filter(Number.isInteger))] : [];
+        if (ids.length === 0 || ids.length % 10 !== 0) return cors(json({ error: "must_be_multiple_of_10", count: ids.length }, 400), env);
+        const ph = ids.map(() => "?").join(",");
+        // 所有 かつ 非お気に入り のものだけ(サーバー検証。混入があれば弾く)
+        const rows = await q(env,
+          `SELECT m.id FROM monsters m LEFT JOIN monster_meta mm ON mm.monster_id = m.id
+           WHERE m.user_id = ? AND m.id IN (${ph}) AND COALESCE(mm.favorite, 0) = 0`, [user.id, ...ids]);
+        if (rows.length !== ids.length) return cors(json({ error: "invalid_selection" }, 400), env);
+        // 実削除数から付与数を決める(二重送信での過剰付与を防ぐ)
+        const del = await run(env, `DELETE FROM monsters WHERE user_id = ? AND id IN (${ph})`, [user.id, ...ids]);
+        const soldN = del.meta.changes;
+        if (soldN === 0) return cors(json({ error: "nothing_sold" }, 409), env);
+        const grant = Math.floor(soldN / 10);
+        await env.DB.batch([
+          env.DB.prepare(`DELETE FROM monster_meta WHERE monster_id IN (${ph})`).bind(...ids),
+          env.DB.prepare(`DELETE FROM train_limits WHERE monster_id IN (${ph})`).bind(...ids),
+          env.DB.prepare("INSERT OR IGNORE INTO train_tickets (user_id, amount) VALUES (?, 0)").bind(user.id),
+          env.DB.prepare("UPDATE train_tickets SET amount = amount + ? WHERE user_id = ?").bind(grant, user.id),
+        ]);
+        const tt = await one(env, "SELECT amount FROM train_tickets WHERE user_id = ?", [user.id]);
+        return cors(json({ sold: soldN, granted: grant, trainTickets: tt ? tt.amount : 0 }), env);
+      }
+
       // お気に入り登録/解除
       const mFav = p.match(/^\/monsters\/(\d+)\/favorite$/);
       if (mFav && request.method === "POST") {

@@ -24,9 +24,10 @@ export function sortMonsters(mons, sort) {
   return arr;
 }
 
-export function MonsterGrid({ monsters, onPick, sub }) {
+export function MonsterGrid({ monsters, onPick, sub, selectedIds, isDisabled }) {
   const [sort, setSort] = useState("new");
   const sorted = useMemo(() => sortMonsters(monsters, sort), [monsters, sort]);
+  const selSet = selectedIds ? new Set(selectedIds) : null;
   return (
     <>
       <div className="toolbar" style={{ marginBottom: 14 }}>
@@ -38,7 +39,10 @@ export function MonsterGrid({ monsters, onPick, sub }) {
         </div>
       </div>
       <div className="grid-mons">
-        {sorted.map(m => <MonsterCard key={m.id} monster={m} onClick={() => onPick(m)} sub={sub ? sub(m) : undefined} />)}
+        {sorted.map(m => (
+          <MonsterCard key={m.id} monster={m} onClick={() => onPick(m)} sub={sub ? sub(m) : undefined}
+            selected={selSet ? selSet.has(m.id) : false} disabled={isDisabled ? isDisabled(m) : false} />
+        ))}
       </div>
     </>
   );
