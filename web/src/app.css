@@ -318,9 +318,11 @@ input, select, button { font-family: inherit; }
   .user-tag { display: none; }
   .grid-mons { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
   .arena { grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; }
+  /* position:fixed と backdrop-filter を同一要素に付けるとモバイル(iOS Safari)で
+     固定されずスクロールするWebKitバグがあるため、blurは使わず不透明背景で固定する */
   .tabbar {
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
-    background: rgba(10,11,16,.94); backdrop-filter: blur(12px); border-top: 1px solid var(--border);
+    background: #0b0c12; border-top: 1px solid var(--border);
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
   }
   .tabbar a {
