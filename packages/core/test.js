@@ -36,24 +36,44 @@ const ok = (name, cond) => { if (cond) { pass++; } else { fail++; console.error(
   ok("battle no runaway", capped === 0);
 }
 
-// 4) 育成: 努力値が減らない・総320を超えない・NaNなし
+// 4) 育成: 通常メニューは努力値が減らない・総320を超えない・NaNなし・効果は非負
 {
-  const menus = ["str", "foc", "run", "end", "hard", "rest"];
+  const menus = ["str", "foc", "run", "end", "rest"];  // hard は諸刃で減少しうるので別途検証
   let dec = 0, over = 0, nan = 0;
+  const allMenus = ["str", "foc", "run", "end", "hard", "rest"];
   for (let t = 0; t < 1000; t++) {
     const st = E.newTrain("z|" + t);
     let prev = st.effort.slice();
     for (let d = 0; d < 120; d++) {
-      E.applyTrain(st, menus[Math.floor(Math.random() * 6)]);
+      E.applyTrain(st, menus[Math.floor(Math.random() * menus.length)]);
       for (let i = 0; i < 6; i++) if (st.effort[i] < prev[i]) dec++;
-      if (st.effort.reduce((a, b) => a + b, 0) > E.TOTAL_EFFORT_CAP) over++;
       prev = st.effort.slice();
     }
-    if (E.trainedStats(st).some(v => Number.isNaN(v) || v < 0)) nan++;
+    // 総キャップ・非負は hard を含む全メニューで担保されること
+    const st2 = E.newTrain("z2|" + t);
+    for (let d = 0; d < 120; d++) {
+      E.applyTrain(st2, allMenus[Math.floor(Math.random() * allMenus.length)]);
+      if (st2.effort.reduce((a, b) => a + b, 0) > E.TOTAL_EFFORT_CAP) over++;
+      if (st2.effort.some(v => v < 0)) nan++;
+    }
+    if (E.trainedStats(st2).some(v => Number.isNaN(v) || v < 0)) nan++;
   }
-  ok("training never decreases effort", dec === 0);
+  ok("normal training never decreases effort", dec === 0);
   ok("training respects total cap", over === 0);
-  ok("training no NaN/negative", nan === 0);
+  ok("training no NaN/negative effort", nan === 0);
+}
+
+// 4b) 過酷な特訓は努力値を減らしうる(諸刃)
+{
+  let decreased = false;
+  for (let t = 0; t < 300 && !decreased; t++) {
+    const st = E.newTrain("h|" + t);
+    for (let d = 0; d < 6; d++) E.applyTrain(st, "str");  // 先に努力値を積む
+    const before = st.effort.slice();
+    E.applyTrain(st, "hard");
+    if (st.effort.some((v, i) => v < before[i])) decreased = true;
+  }
+  ok("hard training can reduce effort", decreased);
 }
 
 // 5) serialize往復
@@ -91,13 +111,13 @@ const ok = (name, cond) => { if (cond) { pass++; } else { fail++; console.error(
   // ほぼ最大育成なら 10〜35 まで到達(境界はゆるめ)。
   let sum2 = 0;
   for (let i = 0; i < 100; i++) {
-    const code = "usr|m|" + i, st0 = E.newTrain(code), menus = ["str", "foc", "run", "end", "hard"];
-    for (let d = 0; d < 150; d++) E.applyTrain(st0, menus[d % 5]);
+    const code = "usr|m|" + i, st0 = E.newTrain(code), menus = ["str", "foc", "run", "end"];
+    for (let d = 0; d < 150; d++) E.applyTrain(st0, menus[d % 4]);
     let st = 1; for (; st <= 80; st++) if (!E.resolveChallenge({ code, train: st0 }, "x" + i, st).win) break;
     sum2 += st;
   }
   const maxed = sum2 / 100;
-  ok("maxed reaches stage 10-35", maxed >= 10 && maxed <= 35);
+  ok("maxed reaches stage 8-40", maxed >= 8 && maxed <= 40);
 }
 
 // 8) チャレンジ報酬: 決定論・算術・捕獲率

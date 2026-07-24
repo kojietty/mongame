@@ -394,7 +394,7 @@ export const MENUS = [
   { id: "foc", name: "瞑想", desc: "特攻++ 特防+", gain: [[3, 14], [4, 6]], exp: 16, dist: 0 },
   { id: "run", name: "疾走", desc: "素早さ++ 攻撃+", gain: [[5, 14], [1, 5]], exp: 16, dist: 0 },
   { id: "end", name: "耐久鍛錬", desc: "HP++ 防御+", gain: [[0, 14], [2, 6]], exp: 16, dist: 0 },
-  { id: "hard", name: "過酷な特訓", desc: "全体を大きく+ 但し歪み大・稀に異変", gain: [[0, 7], [1, 7], [2, 7], [3, 7], [4, 7], [5, 7]], exp: 26, dist: 12, risk: true },
+  { id: "hard", name: "過酷な特訓", desc: "経験を大きく得る・稀に覚醒 但しランダム1能力が減少", gain: [], exp: 26, dist: 10, risk: true, penalty: true },
   { id: "rest", name: "休養", desc: "歪み-25 ＋ 次の育成が好調(+40%)", gain: [], exp: 6, dist: -25 },
 ];
 /** 新規育成state(D1へJSONで保存する対象) */
@@ -428,7 +428,14 @@ export function applyTrain(state, menuId) {
     if (add > primaryGain) { primaryGain = add; primary = idx; }
     if (add === 0 && amt > 0) events.push({ t: "cap", text: `${STAT_NAMES[idx]}はこれ以上伸びない(才能グレード${g[0]}の限界 または 総努力値${TOTAL_EFFORT_CAP})` });
   }
-  if (menu.id === "rest") state.buff = 1; else if (menu.gain.length > 0) state.buff = 0;
+  if (menu.id === "rest") state.buff = 1; else state.buff = 0;
+  // 過酷な特訓: ランダムな1能力の努力値が必ず減少(諸刃の代償)
+  if (menu.penalty) {
+    const dn = rint(rng, 0, 5);
+    const cut = Math.min(state.effort[dn], rint(rng, 8, 18));
+    if (cut > 0) { state.effort[dn] -= cut; events.push({ t: "ev", text: `過酷さで ${STAT_NAMES[dn]} の努力値が ${cut} 下がった` }); }
+    else events.push({ t: "ev", text: `${STAT_NAMES[dn]} はこれ以上下がらなかった` });
+  }
   const totalEff = state.effort.reduce((a, b) => a + b, 0);
   // EXP / レベル
   state.exp += menu.exp;

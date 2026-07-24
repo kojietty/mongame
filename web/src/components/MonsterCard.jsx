@@ -4,11 +4,13 @@ import { genStats, TYPES, typeIdx } from "@monster-game/core";
 import { MonsterSprite } from "./MonsterSprite.jsx";
 import { rarityTextClass, ringClass } from "../lib/ui.js";
 
-export function MonsterCard({ monster, onClick, sub }) {
+export function MonsterCard({ monster, onClick, sub, selected, disabled }) {
   const info = genStats(monster.code);
   const rn = info.rarity.name;
   return (
-    <div className="card mon-card" onClick={onClick}>
+    <div className={"card mon-card" + (selected ? " selected" : "") + (disabled ? " dimmed" : "")}
+      onClick={disabled ? undefined : onClick}>
+      {selected && <div className="sel-check">✓</div>}
       {monster.favorite && <div className="fav-badge">⭐</div>}
       <div className={"mon-stage " + ringClass(rn)}><MonsterSprite code={monster.code} size={104} /></div>
       <div className="mon-name">{monster.nickname || info.name} <span className={"stars " + rarityTextClass(rn)}>{info.rarity.stars}</span></div>

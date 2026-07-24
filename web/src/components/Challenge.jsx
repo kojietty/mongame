@@ -83,7 +83,15 @@ export function Challenge() {
     finally { setBusy(false); }
   };
 
-  const restart = () => { setRun(null); setPhase("select"); setFight(null); setReview(false); setRecord(false); setGained(null); };
+  // キャラ変更: 選択画面へ戻る
+  const changeChar = () => { setRun(null); setPhase("select"); setFight(null); setReview(false); setRecord(false); setGained(null); };
+  // もう一度: 同じ個体で新しいランを開始(周回)。個体が見つからなければ選択へ。
+  const retrySame = async () => {
+    const same = mons.find(m => m.code === run?.code);
+    if (!same) { changeChar(); return; }
+    setFight(null); setReview(false); setRecord(false); setGained(null);
+    await start(same.id);
+  };
 
   // --- select ---
   if (phase === "select") {
@@ -177,7 +185,8 @@ export function Challenge() {
             </>
           )}
           <div className="row" style={{ justifyContent: "center", marginTop: 18 }}>
-            <button className="btn btn-primary" onClick={restart}>もう一度挑戦</button>
+            <button className="btn btn-primary" disabled={busy} onClick={retrySame}>もう一度（同じ個体）</button>
+            <button className="btn" disabled={busy} onClick={changeChar}>キャラ変更</button>
             <Link to="/ranking"><button className="btn">ランキング</button></Link>
           </div>
         </div>
@@ -214,7 +223,8 @@ export function Challenge() {
           </>
         )}
         <div className="row" style={{ justifyContent: "center", marginTop: 18 }}>
-          <button className="btn btn-primary" onClick={restart}>もう一度挑戦</button>
+          <button className="btn btn-primary" disabled={busy} onClick={retrySame}>もう一度（同じ個体）</button>
+          <button className="btn" disabled={busy} onClick={changeChar}>キャラ変更</button>
           <button className="btn" onClick={() => setReview(v => !v)}>{review ? "閉じる" : "⚔️ 対戦を振り返る"}</button>
           <Link to="/ranking"><button className="btn">ランキング</button></Link>
         </div>
