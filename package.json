@@ -1,0 +1,17 @@
+{
+  "name": "monster-game",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "worker",
+    "web"
+  ],
+  "scripts": {
+    "test": "node packages/core/test.js",
+    "dev:web": "npm --workspace @monster-game/web run dev",
+    "dev:api": "npm --workspace @monster-game/worker run dev",
+    "build:web": "npm --workspace @monster-game/web run build"
+  }
+}

@@ -1,0 +1,46 @@
+name = "monster-game-api"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# --- 静的アセット(React SPAをWorkerが同一オリジンで配信) ---
+# web を `VITE_API_BASE= npm run build:web` でビルドし ../web/dist を配信。
+# 実ファイルは自動配信、未知パスは index.js が index.html を返す(SPAルーティング)。
+[assets]
+directory = "../web/dist"
+binding = "ASSETS"
+run_worker_first = true
+
+# --- 公開vars(シークレットではない) ---
+# dev(localhost)値は .dev.vars では上書きしていないため、dev実行時は下の本番値が使われる。
+# ローカル開発に戻す場合は一時的に localhost 値へ戻すこと。
+[vars]
+OAUTH_REDIRECT_URI = "https://monster-game-api.pagudaruma.workers.dev/auth/google/callback"
+# SPAもこのWorkerが配信するので、ログイン後の戻り先はWorker自身のルート。
+WEB_ORIGIN = "https://monster-game-api.pagudaruma.workers.dev"
+
+# --- D1 (SQLite) ---
+# 作成: wrangler d1 create monster-game-db  → 出力の database_id を貼る
+[[d1_databases]]
+binding = "DB"
+database_name = "monster-game-db"
+database_id = "0996c4a6-d799-4966-8015-55876eeadcd6"
+
+# --- KV (セッション) ---
+# 作成: wrangler kv namespace create SESSIONS  → id を貼る
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "62b34f8988b840ed86796c3d665ed680"
+
+# --- Durable Object (マッチメイキング) ---
+[[durable_objects.bindings]]
+name = "MATCHMAKING"
+class_name = "MatchmakingQueue"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MatchmakingQueue"]
+
+# シークレットはコミットしない。以下で登録:
+#   wrangler secret put GOOGLE_CLIENT_ID
+#   wrangler secret put GOOGLE_CLIENT_SECRET

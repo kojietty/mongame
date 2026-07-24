@@ -1,0 +1,14 @@
+{
+  "name": "@monster-game/core",
+  "version": "0.1.0",
+  "description": "Deterministic shared engine (generation, stats, abilities, training, battle). Runs in browser and Cloudflare Workers.",
+  "type": "module",
+  "main": "engine.js",
+  "exports": {
+    ".": "./engine.js",
+    "./render": "./render.js"
+  },
+  "scripts": {
+    "test": "node test.js"
+  }
+}

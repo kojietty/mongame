@@ -1,0 +1,18 @@
+{
+  "name": "@monster-game/worker",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute monster-game-db --file=./schema.sql",
+    "db:init:remote": "wrangler d1 execute monster-game-db --remote --file=./schema.sql"
+  },
+  "dependencies": {
+    "@monster-game/core": "*"
+  },
+  "devDependencies": {
+    "wrangler": "^3.80.0"
+  }
+}

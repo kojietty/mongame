@@ -1,0 +1,4 @@
+# worker/ で使うローカル用シークレット。実際は worker/.dev.vars にコピーして値を入れる(gitignore済み)。
+# 本番は `wrangler secret put NAME` で登録。
+GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
