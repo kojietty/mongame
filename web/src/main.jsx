@@ -7,6 +7,7 @@ import { Trainer } from "./components/Trainer.jsx";
 import { Arena } from "./components/Arena.jsx";
 import { Challenge } from "./components/Challenge.jsx";
 import { Leaderboard } from "./components/Leaderboard.jsx";
+import { Wiki } from "./components/Wiki.jsx";
 import { MeProvider, ToastProvider, useMeCtx, useToast } from "./lib/store.jsx";
 import { NameEditor } from "./components/NameEditor.jsx";
 import { authUrl, api } from "./lib/api.js";
@@ -19,6 +20,7 @@ const NAV = [
   { to: "/arena", label: "対戦", ic: "⚔️" },
   { to: "/challenge", label: "挑戦", ic: "🔥" },
   { to: "/ranking", label: "順位", ic: "🏆" },
+  { to: "/wiki", label: "Wiki", ic: "📚" },
 ];
 
 function TopBar() {
@@ -92,6 +94,8 @@ function App() {
                 <Route path="/arena" element={<Arena />} />
                 <Route path="/challenge" element={<Challenge />} />
                 <Route path="/ranking" element={<Leaderboard />} />
+                <Route path="/wiki" element={<Wiki />} />
+                <Route path="/wiki/*" element={<Wiki />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </main>
