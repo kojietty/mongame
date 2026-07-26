@@ -45,14 +45,29 @@ npm run dev:api      # Worker  → http://localhost:8787
 npm run dev:web      # SPA     → http://localhost:5173  (/api,/auth はWorkerへproxy)
 ```
 
-## デプロイ(概要)
+## デプロイ
+
+`main` への push で GitHub Actions([.github/workflows/deploy.yml](.github/workflows/deploy.yml))が
+テスト → SPAビルド → `wrangler deploy` を自動実行する。SPA は Worker が同一オリジンで配信するため、
+デプロイ先は Worker 1つだけ(Pages は使わない)。
+
+初回のみ GitHub リポジトリの Settings → Secrets and variables → Actions に以下を登録する:
+
+| Secret | 値 |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | Cloudflareダッシュボードで発行(テンプレート "Edit Cloudflare Workers" + D1 Edit) |
+| `CLOUDFLARE_ACCOUNT_ID` | `wrangler whoami` で表示される Account ID |
+
+手動デプロイする場合:
 
 ```bash
-cd worker && wrangler deploy                # API
-cd ../web && npm run build                  # dist/ を Cloudflare Pages へ
+VITE_API_BASE= npm run build:web            # web/dist を生成(Workerが配信)
+cd worker && npx wrangler deploy
 ```
+
 本番は wrangler.toml の OAUTH_REDIRECT_URI / WEB_ORIGIN を本番URLに更新し、
-Google側の承認済みリダイレクトURIも本番に追加、シークレットは `wrangler secret put` で登録する。
+Google側の承認済みリダイレクトURIも本番に追加、シークレットは `wrangler secret put` で登録する
+(シークレットはWorker側に保持されるため、CIデプロイでは再登録不要)。
 
 ## 元になった試作(このリポの外)
 
