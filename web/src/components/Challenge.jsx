@@ -1,5 +1,5 @@
 /** チャレンジ: 1体で連続討伐(毎戦全回復)。撤退で報酬確定・敗北で没収。捕獲あり。 */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { genStats, challengeEnemy, trainedStats, allAbilities, challengeRewards, captureRoll, CHALLENGE_REWARD_STEP } from "@monster-game/core";
 import { api } from "../lib/api.js";
@@ -9,6 +9,8 @@ import { MonsterGrid } from "./MonsterGrid.jsx";
 import { BattleStage } from "./BattleStage.jsx";
 import { FighterInfo } from "./FighterInfo.jsx";
 import { BattleLog } from "./BattleLog.jsx";
+
+const AUTO_DELAY = 800;
 
 function RewardBank({ rewards, lost }) {
   return (
@@ -32,6 +34,24 @@ export function Challenge() {
   const [best, setBest] = useState(0);          // このラン開始前の自己ベスト
   const [record, setRecord] = useState(false);  // 自己ベスト更新したか
   const [gained, setGained] = useState(null);   // 撤退で得た報酬 {gacha, train, captures}
+  const [autoTarget, setAutoTarget] = useState(null); // 自動進行の目標ステージ
+
+  const autoTargetRef = useRef(null);
+  const autoTimer = useRef(null);
+  const busyRef = useRef(false); // setTimeout からの doFight 呼び出し時の stale closure を防ぐ
+
+  const setAuto = (target) => {
+    setAutoTarget(target);
+    autoTargetRef.current = target;
+  };
+
+  const cancelAuto = () => {
+    if (autoTimer.current) { clearTimeout(autoTimer.current); autoTimer.current = null; }
+    setAuto(null);
+  };
+
+  // unmount 時にタイマー解放
+  useEffect(() => () => { if (autoTimer.current) clearTimeout(autoTimer.current); }, []);
 
   useEffect(() => {
     if (!me) return;
@@ -43,54 +63,68 @@ export function Challenge() {
   if (loaded && !me) return <p className="muted">ログインしてください。</p>;
 
   const start = async (monsterId) => {
-    setBusy(true);
+    busyRef.current = true; setBusy(true);
     try { const d = await api.challengeStart(monsterId); setRun(d.run); setPhase("ready"); setReview(false); }
     catch { toast("開始に失敗しました", "err"); }
-    finally { setBusy(false); }
+    finally { busyRef.current = false; setBusy(false); }
   };
 
   const doFight = async () => {
-    if (busy) return;
-    setBusy(true);
+    if (busyRef.current) return;
+    busyRef.current = true; setBusy(true);
     try { const d = await api.challengeFight(); setFight(d); setPhase("battle"); }
-    catch (e) { toast(e.status === 409 ? "処理が重複しました" : "戦闘に失敗しました", "err"); setBusy(false); }
+    catch (e) { toast(e.status === 409 ? "処理が重複しました" : "戦闘に失敗しました", "err"); busyRef.current = false; setBusy(false); cancelAuto(); }
   };
 
   const onBattleDone = () => {
-    setBusy(false);
+    busyRef.current = false; setBusy(false);
     if (fight.win) {
       setRun(r => ({ ...r, stage: fight.stage, score: fight.score }));
-      // 5体ごとの報酬到達 / 捕獲チャンスの演出(付与は撤退時)
       if (fight.score % CHALLENGE_REWARD_STEP === 0) toast(`${fight.score}体撃破! 報酬 🎟+1 💪+1（撤退で確定）`, "gold");
       if (captureRoll(run.seed, fight.score)) toast("🧬 捕獲チャンス! 撤退すれば仲間になる", "gold");
       setPhase("ready");
+      // 自動進行: 次の戦闘をスケジュール
+      const target = autoTargetRef.current;
+      if (target !== null && fight.stage < target) {
+        autoTimer.current = setTimeout(() => { autoTimer.current = null; doFight(); }, AUTO_DELAY);
+      } else if (target !== null) {
+        toast(`目標 STAGE ${target} に到達! 手動モードに戻ります`, "gold");
+        setAuto(null);
+      }
     } else {
+      setAuto(null);
       setRecord(fight.score > best);
       setPhase("result");
     }
   };
 
   const retire = async () => {
-    setBusy(true);
+    cancelAuto();
+    busyRef.current = true; setBusy(true);
     try {
       const d = await api.challengeRetire();
       setGained(d.rewards);
       setRecord(d.score > best);
-      refresh(); // ヘッダーのチケット反映
-      if (d.rewards.captures.length) api.monsters().then(m => setMons(m.monsters)); // 捕獲を図鑑に反映
+      refresh();
+      if (d.rewards.captures.length) api.monsters().then(m => setMons(m.monsters));
       setPhase("retired");
     } catch { toast("撤退に失敗しました", "err"); }
-    finally { setBusy(false); }
+    finally { busyRef.current = false; setBusy(false); }
   };
 
-  // キャラ変更: 選択画面へ戻る
-  const changeChar = () => { setRun(null); setPhase("select"); setFight(null); setReview(false); setRecord(false); setGained(null); };
-  // もう一度: 同じ個体で新しいランを開始(周回)。個体が見つからなければ選択へ。
+  const changeChar = () => { cancelAuto(); setRun(null); setPhase("select"); setFight(null); setReview(false); setRecord(false); setGained(null); };
   const retrySame = async () => {
+    cancelAuto();
     const same = mons.find(m => m.code === run?.code);
     if (!same) { changeChar(); return; }
     setFight(null); setReview(false); setRecord(false); setGained(null);
     await start(same.id);
+  };
+
+  const startAuto = (target) => {
+    if (busyRef.current || !run || run.stage >= target) return;
+    setAuto(target);
+    doFight();
   };
 
   // --- select ---
@@ -114,6 +148,7 @@ export function Challenge() {
     const eInfo = genStats(enemy.code);
     const pending = challengeRewards(run.seed, run.score);
     const nextIn = CHALLENGE_REWARD_STEP - (run.score % CHALLENGE_REWARD_STEP);
+    const isAuto = autoTarget !== null;
     return (
       <div>
         <Header />
@@ -139,10 +174,32 @@ export function Challenge() {
               <div className="mon-sub">{eInfo.name}（強化）</div>
             </div>
           </div>
-          <div className="row" style={{ justifyContent: "center", marginTop: 18 }}>
-            <button className="btn btn-primary btn-lg" disabled={busy} onClick={doFight}>戦う</button>
-            <button className="btn btn-danger" disabled={busy} onClick={retire}>撤退して報酬確定</button>
-          </div>
+
+          {isAuto ? (
+            <div className="auto-bar" style={{ marginTop: 18 }}>
+              <div className="auto-status">⚡ 自動進行中 STAGE {run.stage} → 目標 {autoTarget}</div>
+              <div className="row" style={{ justifyContent: "center", gap: 12, marginTop: 8 }}>
+                <button className="btn btn-danger" onClick={cancelAuto}>キャンセル</button>
+                <button className="btn btn-danger" disabled={busy} onClick={retire}>撤退して報酬確定</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="row" style={{ justifyContent: "center", marginTop: 18 }}>
+                <button className="btn btn-primary btn-lg" disabled={busy} onClick={doFight}>戦う</button>
+                <button className="btn btn-danger" disabled={busy} onClick={retire}>撤退して報酬確定</button>
+              </div>
+              <div className="auto-selector">
+                <span className="auto-label">自動で進む:</span>
+                <select className="select auto-select" disabled={busy} value="" onChange={e => { const v = +e.target.value; if (v) startAuto(v); }}>
+                  <option value="" disabled>目標を選択…</option>
+                  {Array.from({ length: 10 }, (_, i) => (i + 1) * 5).map(t => (
+                    <option key={t} value={t} disabled={run.stage >= t}>{t <= run.stage ? `${t}（到達済み）` : `STAGE ${t} まで`}</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
